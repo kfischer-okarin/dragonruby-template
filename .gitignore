@@ -18,3 +18,5 @@ VERSION.txt
 
 # Others
 .DS_Store
+vendor
+Gemfile.lock
