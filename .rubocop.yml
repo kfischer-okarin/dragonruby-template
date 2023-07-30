@@ -11,7 +11,6 @@ Style/BlockDelimiters:
 Style/FrozenStringLiteralComment:
   Enabled: false
 
-
 Style/RandomWithOffset:
   Enabled: false
 
@@ -28,6 +27,7 @@ Naming/MethodParameterName:
     - r
     - g
     - b
+    - a
 
 Style/GlobalVars:
   AllowedVariables:
