@@ -1,23 +1,30 @@
 AllCops:
   NewCops: enable
 
+# --- Personal preferences ---
 Layout/LineLength:
   Max: 120
 
 Style/BlockDelimiters:
   EnforcedStyle: semantic
 
-# DragonRuby basic
-Style/FrozenStringLiteralComment:
-  Enabled: false
+# --- DragonRuby basic settings ---
 
-Style/RandomWithOffset:
-  Enabled: false
+# See this as refactoring suggestion not problem
+Metrics/AbcSize:
+  Severity: info
 
-Style/RedundantFileExtensionInRequire:
+# See this as refactoring suggestion not problem
+Metrics/MethodLength:
+  Severity: info
   Exclude:
-    - mygame/**/*
+    - mygame/tests/**/*
 
+# Not yet supported - Enable after updated to mruby 3.2
+Naming/BlockForwarding:
+  Enabled: false
+
+# Typical parameters/attributes for DragonRuby primitives
 Naming/MethodParameterName:
   AllowedNames:
     - x
@@ -29,14 +36,22 @@ Naming/MethodParameterName:
     - b
     - a
 
+Style/Documentation:
+  Exclude:
+    - mygame/tests/**/*
+
+# Meaningless in mruby
+Style/FrozenStringLiteralComment:
+  Enabled: false
+
 Style/GlobalVars:
   AllowedVariables:
     - $gtk
 
-Metrics/MethodLength:
-  Exclude:
-    - mygame/tests/**/*
+# Not yet supported - Enable after updated to mruby 3.1
+Style/HashSyntax:
+  Enabled: false
 
-Style/Documentation:
-  Exclude:
-    - mygame/tests/**/*
+# Not implemented in mruby
+Style/RandomWithOffset:
+  Enabled: false
