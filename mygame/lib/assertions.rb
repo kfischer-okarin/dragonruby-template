@@ -1,9 +1,25 @@
 module GTK
   class Assert
+    def self.hash_diff(actual, expected)
+      diff = {}
+      actual.each do |key, value|
+        if expected.key?(key)
+          if !actual.key?(key)
+            diff[key] = { missing: true }
+          elsif value != expected[key]
+            diff[key] = { expected: expected[key], actual: value }
+          end
+        else
+          diff[key] = { unexpected: value }
+        end
+      end
+      diff
+    end
+
     def equal!(actual, expected, message = nil)
       return ok! if actual == expected
 
-      fail_with_message message, <<~ERROR
+      base_message = <<~ERROR
         actual:
         #{safe_format(actual)}
 
@@ -12,6 +28,12 @@ module GTK
         expected:
         #{safe_format(expected)}
       ERROR
+
+      if actual.is_a?(Hash) && expected.is_a?(Hash)
+        diff = Assert.hash_diff(actual, expected)
+        base_message += "\ndiff:\n#{safe_format(diff)}"
+      end
+      fail_with_message message, base_message
     end
 
     def empty!(collection, message = nil)
