@@ -19,6 +19,7 @@ tmp
 VERSION.txt
 
 mygame/app/repl.rb
+mygame/errors
 
 # Others
 .DS_Store
