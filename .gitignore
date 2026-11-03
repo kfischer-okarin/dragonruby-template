@@ -15,6 +15,7 @@ logs
 mygame-template
 open-source-licenses.txt
 README.txt
+tiny.ttf
 tmp
 VERSION.txt
 
@@ -22,6 +23,7 @@ mygame/app/repl.rb
 mygame/errors
 
 # Others
+.dragonruby-files
 .DS_Store
 vendor
 Gemfile.lock
