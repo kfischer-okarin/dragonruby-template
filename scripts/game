@@ -18,6 +18,8 @@ main() {
   case "$command" in
     start) start "$@" ;;
     doctor) doctor ;;
+    press) press "$@" ;;
+    wait-until) wait_until "$@" ;;
     eval) eval_command "$@" ;;
     stop) stop ;;
     *) usage ;;
@@ -29,7 +31,11 @@ usage() {
 Usage: scripts/game <command>
   start [--headless]          Launch an instance owned by this script and wait until it ticks
   doctor                      Check the instance is ours, alive, answering, and error-free
-  eval <ruby>                 Evaluate Ruby in the instance and print the inspected result
+  press [--player N] <button>...
+                              Press controller buttons in order through the engine's input
+                              path, e.g. up down left right a b x y l1 r1 start select
+  wait-until <ruby> [secs]    Poll a Ruby expression until it is truthy (default 60s)
+  eval <ruby>                Evaluate Ruby in the instance and print the inspected result
   stop                        Stop the instance this script started
 USAGE
   exit 2
@@ -108,6 +114,64 @@ doctor() {
     echo "ok   no game error since start"
   fi
   $ok
+}
+
+press() {
+  local player=1
+  if [ "${1:-}" = "--player" ]; then
+    player="${2:?--player needs a number}"
+    shift 2
+  fi
+  [ $# -gt 0 ] || usage
+  require_instance
+
+  local ruby
+  ruby="$(cat <<RUBY
+lookup = GTK::Runtime::CBridge::RAW_CONTROLLER_KEY_LOOKUP
+names = %i[$*]
+unknown = names.reject { |name| lookup.value?(name) }
+raise "Unknown button(s) #{unknown.join(' ')}. Use: #{lookup.values.join(' ')}" unless unknown.empty?
+
+t = Kernel.tick_count
+names.each_with_index do |name, i|
+  code = lookup.key(name)
+  \$gtk.on_tick_count(t + 1 + (2 * i)) { \$gtk.controller_key_event $player, code, :key_down }
+  \$gtk.on_tick_count(t + 2 + (2 * i)) { \$gtk.controller_key_event $player, code, :key_up }
+end
+t + 1 + (2 * names.length)
+RUBY
+)"
+  local done_tick
+  done_tick="$(eval_ruby "$ruby")"
+  if ! [[ "$done_tick" =~ ^[0-9]+$ ]]; then
+    echo "$done_tick" >&2
+    exit 2
+  fi
+  wait_until "Kernel.tick_count >= $done_tick" 10 >/dev/null
+  if new_error_since_start; then
+    echo "The game raised an error during the presses. See $ERROR_FILE" >&2
+    exit 1
+  fi
+  echo "Pressed $* (done at tick $done_tick)."
+}
+
+wait_until() {
+  [ $# -ge 1 ] || usage
+  local expression="$1"
+  local timeout_seconds="${2:-60}"
+  require_instance
+  local deadline=$((SECONDS + timeout_seconds))
+  local result
+  while [ $SECONDS -lt $deadline ]; do
+    result="$(eval_ruby "($expression) ? true : false")"
+    if [ "$result" = "true" ]; then
+      echo "Condition met at tick $(eval_ruby 'Kernel.tick_count')."
+      return 0
+    fi
+    sleep 0.1
+  done
+  echo "Condition not met within ${timeout_seconds}s: $expression" >&2
+  exit 1
 }
 
 eval_command() {
