@@ -46,6 +46,10 @@ Style/GlobalVars:
   AllowedVariables:
     - $gtk
 
+# Hash#to_h ignores its block in mruby and returns the unchanged hash
+Style/MapToHash:
+  Enabled: false
+
 # Not implemented in mruby
 Style/RandomWithOffset:
   Enabled: false
