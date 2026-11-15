@@ -21,7 +21,8 @@ class Mock
     Configurator.new(self).instance_exec(&block)
   end
 
-  def method_missing(method_name, ...)
+  # Only configured or already called methods count for respond_to?
+  def method_missing(method_name, ...) # rubocop:disable Style/MissingRespondToMissing
     configure_mock do
       responding_to(method_name)
     end
