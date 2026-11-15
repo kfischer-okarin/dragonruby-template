@@ -1,5 +1,7 @@
 AllCops:
   NewCops: enable
+  # DragonRuby's mruby reports RUBY_VERSION 3.0 (mruby 3.0.0)
+  TargetRubyVersion: 3.0
 
 # --- Personal preferences ---
 Layout/LineLength:
@@ -19,10 +21,6 @@ Metrics/MethodLength:
   Severity: info
   Exclude:
     - mygame/tests/**/*
-
-# Not yet supported - Enable after updated to mruby 3.2
-Naming/BlockForwarding:
-  Enabled: false
 
 # Typical parameters/attributes for DragonRuby primitives
 Naming/MethodParameterName:
@@ -47,10 +45,6 @@ Style/FrozenStringLiteralComment:
 Style/GlobalVars:
   AllowedVariables:
     - $gtk
-
-# Not yet supported - Enable after updated to mruby 3.1
-Style/HashSyntax:
-  Enabled: false
 
 # Not implemented in mruby
 Style/RandomWithOffset:
