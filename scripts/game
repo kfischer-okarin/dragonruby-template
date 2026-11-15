@@ -5,6 +5,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 STATE_DIR="$ROOT/mygame/tmp/game"
+SCREENSHOT_DIR="$STATE_DIR/screenshots"
 PID_FILE="$STATE_DIR/instance.pid"
 LOG_FILE="$STATE_DIR/instance.log"
 ERROR_FILE="$ROOT/mygame/errors/last.txt"
@@ -22,6 +23,8 @@ main() {
     state) state ;;
     wait-until) wait_until "$@" ;;
     reset) reset "$@" ;;
+    screenshot) screenshot "$@" ;;
+    pixel) pixel "$@" ;;
     eval) eval_command "$@" ;;
     stop) stop ;;
     *) usage ;;
@@ -39,7 +42,9 @@ Usage: scripts/game <command>
   state                       Print the tick and whatever GameCli.state returns
   wait-until <ruby> [secs]    Poll a Ruby expression until it is truthy (default 60s)
   reset [setup]               Restart the game from tick 0, then run GameCli.setup(:setup)
-  eval <ruby>               Evaluate Ruby in the instance and print the inspected result
+  screenshot <name>           Save mygame/tmp/game/screenshots/<name>.png and print its path
+  pixel <name> <x,y>...       Print the RGB of screenshot pixels, in game coordinates (origin bottom left)
+  eval <ruby>              Evaluate Ruby in the instance and print the inspected result
   stop                        Stop the instance this script started
 USAGE
   exit 2
@@ -227,6 +232,37 @@ RUBY
       exit 1
       ;;
   esac
+}
+
+# The opaque black chroma key keeps black areas black: the default key turns
+# them transparent.
+screenshot() {
+  [ $# -eq 1 ] || usage
+  require_instance
+  local relative_path="tmp/game/screenshots/$1.png"
+  mkdir -p "$(dirname "$ROOT/mygame/$relative_path")"
+  rm -f "$ROOT/mygame/$relative_path"
+  eval_ruby "\$outputs.screenshots << { x: 0, y: 0, w: \$args.grid.w, h: \$args.grid.h, path: '$relative_path', r: 0, g: 0, b: 0, a: 255 }" >/dev/null
+  for _ in $(seq 1 50); do
+    if [ -s "$ROOT/mygame/$relative_path" ]; then
+      echo "$ROOT/mygame/$relative_path"
+      return 0
+    fi
+    sleep 0.1
+  done
+  echo "Screenshot was not written: $ROOT/mygame/$relative_path" >&2
+  exit 1
+}
+
+pixel() {
+  [ $# -ge 2 ] || usage
+  local png="$SCREENSHOT_DIR/$1.png"
+  shift
+  if [ ! -f "$png" ]; then
+    echo "No screenshot at $png" >&2
+    exit 1
+  fi
+  python3 -I "$SCRIPT_DIR/png_pixels.py" "$png" "$@"
 }
 
 eval_command() {
