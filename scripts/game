@@ -19,7 +19,9 @@ main() {
     start) start "$@" ;;
     doctor) doctor ;;
     press) press "$@" ;;
+    state) state ;;
     wait-until) wait_until "$@" ;;
+    reset) reset "$@" ;;
     eval) eval_command "$@" ;;
     stop) stop ;;
     *) usage ;;
@@ -34,8 +36,10 @@ Usage: scripts/game <command>
   press [--player N] <button>...
                               Press controller buttons in order through the engine's input
                               path, e.g. up down left right a b x y l1 r1 start select
+  state                       Print the tick and whatever GameCli.state returns
   wait-until <ruby> [secs]    Poll a Ruby expression until it is truthy (default 60s)
-  eval <ruby>                Evaluate Ruby in the instance and print the inspected result
+  reset [setup]               Restart the game from tick 0, then run GameCli.setup(:setup)
+  eval <ruby>               Evaluate Ruby in the instance and print the inspected result
   stop                        Stop the instance this script started
 USAGE
   exit 2
@@ -155,6 +159,18 @@ RUBY
   echo "Pressed $* (done at tick $done_tick)."
 }
 
+state() {
+  require_instance
+  eval_ruby "$(cat <<'RUBY'
+result = { tick: Kernel.tick_count }
+game_cli = Object.const_defined?(:GameCli) ? Object.const_get(:GameCli) : nil
+result.merge!(game_cli.state) if game_cli&.respond_to?(:state)
+result
+RUBY
+)"
+  echo
+}
+
 wait_until() {
   [ $# -ge 1 ] || usage
   local expression="$1"
@@ -171,7 +187,46 @@ wait_until() {
     sleep 0.1
   done
   echo "Condition not met within ${timeout_seconds}s: $expression" >&2
+  echo "Last state: $(state)" >&2
   exit 1
+}
+
+reset() {
+  [ $# -le 1 ] || usage
+  require_instance
+  eval_ruby '$gtk.reset_next_tick' >/dev/null
+  sleep 0.2
+  wait_until 'Kernel.tick_count > 1' 10 >/dev/null
+  if [ $# -eq 0 ]; then
+    echo "Game reset."
+    return 0
+  fi
+  local outcome
+  outcome="$(eval_ruby "$(cat <<RUBY
+begin
+  game_cli = Object.const_defined?(:GameCli) ? Object.const_get(:GameCli) : nil
+  if game_cli&.respond_to?(:setup)
+    game_cli.setup(:$1)
+    :ran
+  else
+    :no_hook
+  end
+rescue StandardError => e
+  "#{e.class}: #{e.message}"
+end
+RUBY
+)")"
+  case "$outcome" in
+    ran) echo "Game reset with setup '$1'." ;;
+    no_hook)
+      echo "Game reset, but GameCli.setup is not defined, so setup '$1' did not run." >&2
+      exit 1
+      ;;
+    *)
+      echo "Game reset, but setup '$1' failed: $outcome" >&2
+      exit 1
+      ;;
+  esac
 }
 
 eval_command() {
