@@ -1,0 +1,181 @@
+#!/bin/bash
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+STATE_DIR="$ROOT/mygame/tmp/game"
+PID_FILE="$STATE_DIR/instance.pid"
+LOG_FILE="$STATE_DIR/instance.log"
+ERROR_FILE="$ROOT/mygame/errors/last.txt"
+PORT="$(sed -n 's/^webserver\.port=//p' "$ROOT/mygame/metadata/cvars.txt" 2>/dev/null)"
+PORT="${PORT:-9001}"
+EVAL_URL="http://localhost:$PORT/dragon/eval/"
+
+main() {
+  local command="${1:-}"
+  shift || true
+  case "$command" in
+    start) start "$@" ;;
+    doctor) doctor ;;
+    eval) eval_command "$@" ;;
+    stop) stop ;;
+    *) usage ;;
+  esac
+}
+
+usage() {
+  cat >&2 <<'USAGE'
+Usage: scripts/game <command>
+  start [--headless]          Launch an instance owned by this script and wait until it ticks
+  doctor                      Check the instance is ours, alive, answering, and error-free
+  eval <ruby>                 Evaluate Ruby in the instance and print the inspected result
+  stop                        Stop the instance this script started
+USAGE
+  exit 2
+}
+
+start() {
+  local headless=false
+  [ "${1:-}" = "--headless" ] && headless=true
+
+  if instance_alive; then
+    echo "Instance already running (PID $(cat "$PID_FILE"))."
+    return 0
+  fi
+
+  local port_owner
+  port_owner="$(port_owner)"
+  if [ -n "$port_owner" ]; then
+    echo "Port $PORT is owned by PID $port_owner, which this script did not start." >&2
+    echo "Leaving it alone; stop it yourself if it should go." >&2
+    exit 1
+  fi
+
+  mkdir -p "$STATE_DIR"
+  local frontmost_app
+  frontmost_app="$(frontmost_app_name)"
+  local video_env=()
+  $headless && video_env=(SDL_VIDEODRIVER=dummy)
+  cd "$ROOT"
+  nohup env SDL_AUDIODRIVER=dummy ${video_env[@]+"${video_env[@]}"} ./dragonruby mygame >"$LOG_FILE" 2>&1 &
+  echo $! >"$PID_FILE"
+
+  for _ in $(seq 1 60); do
+    if ! instance_alive; then
+      echo "Instance exited during startup. Log tail:" >&2
+      tail -20 "$LOG_FILE" >&2
+      rm -f "$PID_FILE"
+      exit 1
+    fi
+    if [ "$(eval_ruby 'Kernel.tick_count > 1' 2>/dev/null)" = "true" ]; then
+      $headless || return_focus_to "$frontmost_app"
+      echo "Instance ready (PID $(cat "$PID_FILE"), log $LOG_FILE)."
+      return 0
+    fi
+    sleep 0.5
+  done
+  echo "Instance did not become ready within 30s. Log: $LOG_FILE" >&2
+  exit 1
+}
+
+doctor() {
+  local ok=true
+  if ! instance_alive; then
+    echo "FAIL no instance started by this script is running. Run: scripts/game start" >&2
+    exit 1
+  fi
+  local pid port_owner
+  pid="$(cat "$PID_FILE")"
+  port_owner="$(port_owner)"
+  if [ "$port_owner" = "$pid" ]; then
+    echo "ok   port $PORT owned by our PID $pid"
+  else
+    echo "FAIL port $PORT owned by PID '${port_owner:-nobody}', expected $pid" >&2
+    ok=false
+  fi
+  local info
+  if info="$(eval_ruby '[$gtk.production? ? :production : :development, Kernel.tick_count]')"; then
+    echo "ok   eval answers: $info"
+  else
+    echo "FAIL eval endpoint does not answer" >&2
+    ok=false
+  fi
+  if new_error_since_start; then
+    echo "FAIL the game raised an error since start. See $ERROR_FILE" >&2
+    ok=false
+  else
+    echo "ok   no game error since start"
+  fi
+  $ok
+}
+
+eval_command() {
+  [ $# -eq 1 ] || usage
+  require_instance
+  eval_ruby "$1"
+  echo
+}
+
+stop() {
+  if [ ! -f "$PID_FILE" ]; then
+    echo "No instance started by this script."
+    return 0
+  fi
+  local pid
+  pid="$(cat "$PID_FILE")"
+  if kill -0 "$pid" 2>/dev/null; then
+    kill "$pid"
+    for _ in $(seq 1 50); do
+      kill -0 "$pid" 2>/dev/null || break
+      sleep 0.1
+    done
+    kill -0 "$pid" 2>/dev/null && kill -9 "$pid"
+  fi
+  rm -f "$PID_FILE"
+  echo "Stopped PID $pid."
+}
+
+require_instance() {
+  if ! instance_alive; then
+    echo "No instance started by this script is running. Run: scripts/game start" >&2
+    exit 1
+  fi
+}
+
+instance_alive() {
+  [ -f "$PID_FILE" ] && kill -0 "$(cat "$PID_FILE")" 2>/dev/null
+}
+
+frontmost_app_name() {
+  command -v osascript >/dev/null || return 0
+  osascript -e 'tell application "System Events" to get name of first application process whose frontmost is true' 2>/dev/null || true
+}
+
+return_focus_to() {
+  [ -n "$1" ] || return 0
+  osascript -e "tell application \"$1\" to activate" >/dev/null 2>&1 ||
+    echo "Could not hand focus back to $1. Keystrokes now reach the game window." >&2
+}
+
+port_owner() {
+  lsof -nP -t -iTCP:"$PORT" -sTCP:LISTEN 2>/dev/null | head -1 || true
+}
+
+new_error_since_start() {
+  [ -f "$ERROR_FILE" ] && [ "$ERROR_FILE" -nt "$PID_FILE" ]
+}
+
+eval_ruby() {
+  local payload
+  payload="$(jq -n --arg code "$1" '{code: $code}')"
+  local response
+  response="$(curl --silent --show-error --max-time 5 --json "$payload" "$EVAL_URL")"
+  if [[ "$response" == "* ERROR"* ]]; then
+    echo "$response" >&2
+    return 1
+  fi
+  printf '%s' "$response"
+}
+
+main "$@"
