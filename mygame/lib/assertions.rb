@@ -75,11 +75,12 @@ module GTK
 
     def raises!(exception_class, message = nil)
       yield
-      fail_with_message message, "Expected to raise #{exception_class}, but nothing was raised"
     rescue exception_class
       ok!
-    rescue Exception => e
+    rescue StandardError => e
       fail_with_message message, "Expected to raise #{exception_class}, but raised: #{e}"
+    else
+      fail_with_message message, "Expected to raise #{exception_class}, but nothing was raised"
     end
 
     private
