@@ -21,11 +21,11 @@ class Mock
     Configurator.new(self).instance_exec(&block)
   end
 
-  def method_missing(method_name, *args, &block)
+  def method_missing(method_name, ...)
     configure_mock do
       responding_to(method_name)
     end
-    send(method_name, *args, &block)
+    send(method_name, ...)
   end
 
   class Configurator
