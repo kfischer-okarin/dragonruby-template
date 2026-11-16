@@ -31,8 +31,11 @@ scripts/game pixel menu/01-open 640,360
 scripts/game stop
 ```
 
-It only ever controls the instance it started: if another process already listens on the port, `start` refuses and
+By default it only controls the instance it started: if another process already listens on the port, `start` refuses and
 leaves it alone. `doctor` also reports when the game has written `mygame/errors/last.txt` since the start.
+
+To use a game you started yourself, put `--attach` before the command, e.g. `scripts/game --attach screenshot bug/01`.
+Every command except `start` and `stop` works that way.
 
 It needs `curl`, `jq`, `lsof` and `python3` (for `pixel`).
 

@@ -12,8 +12,13 @@ ERROR_FILE="$ROOT/mygame/errors/last.txt"
 PORT="$(sed -n 's/^webserver\.port=//p' "$ROOT/mygame/metadata/cvars.txt" 2>/dev/null)"
 PORT="${PORT:-9001}"
 EVAL_URL="http://localhost:$PORT/dragon/eval/"
+ATTACH=false
 
 main() {
+  if [ "${1:-}" = "--attach" ]; then
+    ATTACH=true
+    shift
+  fi
   local command="${1:-}"
   shift || true
   case "$command" in
@@ -33,8 +38,10 @@ main() {
 
 usage() {
   cat >&2 <<'USAGE'
-Usage: scripts/game <command>
-  start [--headless]          Launch an instance owned by this script and wait until it ticks
+Usage: scripts/game [--attach] <command>
+  --attach                    Use whatever game listens on the port, e.g. one you started
+                              yourself, instead of the instance this script started
+  start [--headless]         Launch an instance owned by this script and wait until it ticks
   doctor                      Check the instance is ours, alive, answering, and error-free
   press [--player N] <button>...
                               Press controller buttons in order through the engine's input
@@ -51,6 +58,7 @@ USAGE
 }
 
 start() {
+  refuse_when_attached start
   local headless=false
   [ "${1:-}" = "--headless" ] && headless=true
 
@@ -96,18 +104,19 @@ start() {
 
 doctor() {
   local ok=true
-  if ! instance_alive; then
-    echo "FAIL no instance started by this script is running. Run: scripts/game start" >&2
-    exit 1
-  fi
+  require_instance
   local pid port_owner
-  pid="$(cat "$PID_FILE")"
   port_owner="$(port_owner)"
-  if [ "$port_owner" = "$pid" ]; then
-    echo "ok   port $PORT owned by our PID $pid"
+  if $ATTACH; then
+    echo "ok   port $PORT owned by PID $port_owner (attached)"
   else
-    echo "FAIL port $PORT owned by PID '${port_owner:-nobody}', expected $pid" >&2
-    ok=false
+    pid="$(cat "$PID_FILE")"
+    if [ "$port_owner" = "$pid" ]; then
+      echo "ok   port $PORT owned by our PID $pid"
+    else
+      echo "FAIL port $PORT owned by PID '${port_owner:-nobody}', expected $pid" >&2
+      ok=false
+    fi
   fi
   local info
   if info="$(eval_ruby '[$gtk.production? ? :production : :development, Kernel.tick_count]')"; then
@@ -116,7 +125,9 @@ doctor() {
     echo "FAIL eval endpoint does not answer" >&2
     ok=false
   fi
-  if new_error_since_start; then
+  if $ATTACH; then
+    echo "--   errors since start not checked: this script did not start the game"
+  elif new_error_since_start; then
     echo "FAIL the game raised an error since start. See $ERROR_FILE" >&2
     ok=false
   else
@@ -286,6 +297,7 @@ eval_command() {
 }
 
 stop() {
+  refuse_when_attached stop
   if [ ! -f "$PID_FILE" ]; then
     echo "No instance started by this script."
     return 0
@@ -305,10 +317,21 @@ stop() {
 }
 
 require_instance() {
+  if $ATTACH; then
+    [ -n "$(port_owner)" ] && return 0
+    echo "No game listens on port $PORT." >&2
+    exit 1
+  fi
   if ! instance_alive; then
     echo "No instance started by this script is running. Run: scripts/game start" >&2
     exit 1
   fi
+}
+
+refuse_when_attached() {
+  $ATTACH || return 0
+  echo "$1 only manages the instance this script starts; run it without --attach." >&2
+  exit 2
 }
 
 instance_alive() {
