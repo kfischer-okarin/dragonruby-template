@@ -19,19 +19,33 @@ def decode_png(path):
     with open(path, "rb") as file:
         chunks = read_chunks(file.read()[8:])
     width, height, depth, color_type = struct.unpack(">IIBB", chunks["IHDR"][:10])
-    bytes_per_pixel = {2: 3, 3: 1, 6: 4}.get(color_type)
-    if depth != 8 or bytes_per_pixel is None:
-        sys.exit(f"Expected an 8-bit RGB, RGBA or palette PNG, got depth {depth} color type {color_type}")
-    rows = unfilter(zlib.decompress(chunks["IDAT"]), width, height, bytes_per_pixel)
-    # DragonRuby saves screenshots with at most 256 colors as palette PNGs
+    channels = {2: 3, 3: 1, 6: 4}.get(color_type)
+    allowed_depths = (1, 2, 4, 8) if color_type == 3 else (8,)
+    if channels is None or depth not in allowed_depths:
+        sys.exit(f"Expected an 8-bit RGB or RGBA PNG or a palette PNG, got depth {depth} color type {color_type}")
+    stride = (width * channels * depth + 7) // 8
+    # Filters work on whole pixels, or on single bytes when pixels are packed into bytes
+    bytes_per_pixel = max(1, channels * depth // 8)
+    rows = unfilter(zlib.decompress(chunks["IDAT"]), stride, height, bytes_per_pixel)
+    # DragonRuby saves screenshots with at most 256 colors as palette PNGs, with
+    # 1, 2, 4 or 8 bits per pixel depending on the number of colors
     if color_type == 3:
-        rows = [expand_palette(row, chunks["PLTE"]) for row in rows]
+        rows = [expand_palette(palette_indices(row, width, depth), chunks["PLTE"]) for row in rows]
         bytes_per_pixel = 3
     return height, bytes_per_pixel, rows
 
 
-def expand_palette(row, palette):
-    return bytearray(b"".join(palette[index * 3:index * 3 + 3] for index in row))
+def palette_indices(row, width, depth):
+    pixels_per_byte = 8 // depth
+    mask = (1 << depth) - 1
+    return [
+        (row[x // pixels_per_byte] >> (8 - depth * (x % pixels_per_byte + 1))) & mask
+        for x in range(width)
+    ]
+
+
+def expand_palette(indices, palette):
+    return bytearray(b"".join(palette[index * 3:index * 3 + 3] for index in indices))
 
 
 def read_chunks(data):
@@ -45,8 +59,7 @@ def read_chunks(data):
     return chunks
 
 
-def unfilter(raw, width, height, bytes_per_pixel):
-    stride = width * bytes_per_pixel
+def unfilter(raw, stride, height, bytes_per_pixel):
     rows = []
     previous = bytearray(stride)
     position = 0
