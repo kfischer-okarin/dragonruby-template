@@ -26,6 +26,11 @@ Style/BlockDelimiters:
 Metrics/AbcSize:
   Severity: info
 
+# describe blocks hold all examples of a test file
+Metrics/BlockLength:
+  Exclude:
+    - mygame/tests/**/*
+
 # See this as refactoring suggestion not problem
 Metrics/ClassLength:
   Severity: info
