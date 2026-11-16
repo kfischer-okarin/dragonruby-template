@@ -133,6 +133,8 @@ press() {
   fi
   [ $# -gt 0 ] || usage
   require_instance
+  local error_stamp_before
+  error_stamp_before="$(error_log_stamp)"
 
   local ruby
   ruby="$(cat <<RUBY
@@ -156,8 +158,19 @@ RUBY
     echo "$done_tick" >&2
     exit 2
   fi
-  wait_until "Kernel.tick_count >= $done_tick" 10 >/dev/null
-  if new_error_since_start; then
+  local deadline=$((SECONDS + 10))
+  until [ "$(eval_ruby "Kernel.tick_count >= $done_tick")" = "true" ]; do
+    if [ "$(error_log_stamp)" != "$error_stamp_before" ]; then
+      echo "The game raised an error during the presses. See $ERROR_FILE" >&2
+      exit 1
+    fi
+    if [ $SECONDS -ge $deadline ]; then
+      echo "The presses did not finish within 10s (tick $(eval_ruby 'Kernel.tick_count'), expected $done_tick)." >&2
+      exit 1
+    fi
+    sleep 0.1
+  done
+  if [ "$(error_log_stamp)" != "$error_stamp_before" ]; then
     echo "The game raised an error during the presses. See $ERROR_FILE" >&2
     exit 1
   fi
@@ -319,6 +332,12 @@ port_owner() {
 
 new_error_since_start() {
   [ -f "$ERROR_FILE" ] && [ "$ERROR_FILE" -nt "$PID_FILE" ]
+}
+
+# Modification time with fractions of a second (BSD stat, then GNU stat)
+error_log_stamp() {
+  [ -f "$ERROR_FILE" ] || return 0
+  stat -f '%Fm' "$ERROR_FILE" 2>/dev/null || stat -c '%.9Y' "$ERROR_FILE"
 }
 
 eval_ruby() {
