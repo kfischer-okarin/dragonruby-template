@@ -27,10 +27,18 @@ Metrics/AbcSize:
   Severity: info
 
 # See this as refactoring suggestion not problem
+Metrics/ClassLength:
+  Severity: info
+
+# See this as refactoring suggestion not problem
 Metrics/MethodLength:
   Severity: info
   Exclude:
     - mygame/tests/**/*
+
+# See this as refactoring suggestion not problem
+Metrics/ModuleLength:
+  Severity: info
 
 # Typical parameters/attributes for DragonRuby primitives
 Naming/MethodParameterName:
