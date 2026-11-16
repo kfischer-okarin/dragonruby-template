@@ -22,7 +22,7 @@
 from `webserver.port` in `mygame/metadata/cvars.txt`). Run it without arguments for the full list of commands.
 
 ```sh
-scripts/game start              # or --headless: no window, but labels are missing from screenshots
+scripts/game start              # or --headless: no window, but labels are missing from screenshots (not with shaders)
 scripts/game press right a      # controller buttons, through the engine's input path
 scripts/game wait-until 'Kernel.tick_count > 600'
 scripts/game state

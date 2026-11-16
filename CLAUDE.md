@@ -17,14 +17,14 @@ bundle exec rubocop
 
 The DragonRuby engine is not part of the repository: it gets copied into the repository root (see README.md), and `./dragonruby` must be there for tests and the game to run.
 
-With `shaders=true` in `mygame/metadata/game_metadata.txt` the engine renders through SDL_GPU, which no headless SDL video driver provides (`dummy` and `offscreen` both fail with "Couldn't create render context"). `./run-tests` and `scripts/game start --headless` then cannot start the game; run the tests with a window instead, `SDL_AUDIODRIVER=dummy ./dragonruby mygame --test tests.rb`, and read the summary at the end of its output.
+With `shaders=true` in `mygame/metadata/game_metadata.txt` the engine needs a GPU renderer, which no headless SDL video driver provides (`dummy` and `offscreen` both fail with "Couldn't create render context"). Then `./run-tests` opens a window for a moment, and `scripts/game start --headless` refuses to start; both say why. Shaders also require the DragonRuby Pro license.
 
 ## Driving the running game
 
 `scripts/game` starts its own instance of the game in the background and controls it through DragonRuby's development web server. Run it without arguments for all commands.
 
 ```sh
-scripts/game start --headless   # without --headless the game gets a window; headless screenshots have no text labels
+scripts/game start --headless   # without --headless the game gets a window; headless screenshots have no text labels and games with shaders cannot run headless
 scripts/game press right a      # controller buttons through the engine's input path
 scripts/game state              # tick plus whatever GameCli.state returns
 scripts/game wait-until '<ruby expression>' [seconds]

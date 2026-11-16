@@ -3,9 +3,16 @@
 test_file=${1:-tests.rb}
 log_file=logs/tests.log
 
+# Shaders need a GPU renderer, which the headless dummy video driver cannot provide
+if grep -q '^shaders=true' mygame/metadata/game_metadata.txt 2>/dev/null; then
+  echo "shaders=true in mygame/metadata/game_metadata.txt: running the tests in a window, shaders cannot run headless."
+else
+  export SDL_VIDEODRIVER=dummy
+fi
+
 echo "Running tests in $test_file..."
 mkdir -p logs
-SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./dragonruby mygame --test "$test_file" | tee "$log_file"
+SDL_AUDIODRIVER=dummy ./dragonruby mygame --test "$test_file" | tee "$log_file"
 
 # DragonRuby always exits with 0, even when tests fail or the test files
 # do not load, so the result has to come from the log

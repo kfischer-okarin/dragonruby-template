@@ -61,6 +61,11 @@ start() {
   refuse_when_attached start
   local headless=false
   [ "${1:-}" = "--headless" ] && headless=true
+  if $headless && grep -q '^shaders=true' "$ROOT/mygame/metadata/game_metadata.txt" 2>/dev/null; then
+    echo "--headless cannot start this game: shaders=true needs a GPU renderer, which no headless video" >&2
+    echo "driver provides. Run 'scripts/game start' without --headless (it returns focus to your app)." >&2
+    exit 2
+  fi
 
   if instance_alive; then
     echo "Instance already running (PID $(cat "$PID_FILE"))."
