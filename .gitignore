@@ -1,23 +1,25 @@
-# Engine files
-.dragonruby
-builds
-docs
-include
-samples
-CHANGELOG*
-console-logo.png
-ctags*
+# Engine files, anchored to the repository root with a leading / so that a game's own files with the same names
+# (mygame/fonts/font.ttf, a mygame/docs folder, ...) are not ignored
+/.dragonruby
+/builds
+/docs
+/include
+/samples
+/CHANGELOG*
+/console-logo.png
+/ctags*
 /dragonruby*
-eula.txt
-ffmpeg
-font.ttf
-logs
-mygame-template
-open-source-licenses.txt
-README.txt
-tiny.ttf
+/eula.txt
+/ffmpeg
+/font.ttf
+/logs
+/mygame-template
+/open-source-licenses.txt
+/README.txt
+/tiny.ttf
+/VERSION.txt
+# Not anchored: the engine also writes mygame/tmp
 tmp
-VERSION.txt
 
 mygame/app/repl.rb
 mygame/errors
@@ -27,7 +29,7 @@ mygame/shaders/*.msl
 mygame/shaders/*.spv
 
 # Others
-.dragonruby-files
+/.dragonruby-files
 .DS_Store
-vendor
-Gemfile.lock
+/vendor
+/Gemfile.lock
