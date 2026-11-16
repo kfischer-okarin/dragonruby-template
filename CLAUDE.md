@@ -51,10 +51,10 @@ scripts/game stop
 
 DragonRuby runs mruby with `RUBY_VERSION` 3.0, and `.rubocop.yml` targets that. Checked in DragonRuby 6.58 and 7.24:
 
-- Works: endless methods (but not with `yield`), `...` forwarding (also after leading arguments), `_1` and `it` block parameters, beginless ranges, `Hash#except`/`#slice`, `Array#filter_map`, `Enumerable#tally`, `clamp(min, max)`, `String#delete_prefix`, `Array#to_h` with a block
+- Works: endless methods (but not with `yield`), `...` forwarding (also after leading arguments), `_1` and `it` block parameters, beginless ranges, `Hash#except`/`#slice`/`#transform_values`, `Array#filter_map`, `Enumerable#tally`, `clamp(min, max)`, `String#delete_prefix`, `Array#to_h` with a block
 - Syntax errors: anonymous `&`/`*`/`**` forwarding, `{ x: }` hash shorthand, all pattern matching (`case/in`, `=>`, `x in Pattern`)
-- Missing: `Array#intersect?`, `Hash#sum`, `Integer#digits`, `clamp(range)`, `rand(range)`, `Data`, `Struct.new(keyword_init: true)`
-- Wrong without an error: `Hash#to_h` ignores its block and returns the hash unchanged; `send(name, *args, **{})` passes the empty hash as an extra positional argument
+- Missing: `Array#intersect?`, `Array#sort_by!`, `Range#step`, `Hash#sum`, `Integer#digits`, `clamp(range)`, `rand(range)`, `Data`, `Struct.new(keyword_init: true)`
+- Wrong without an error: `Integer#/` returns a Float (`7 / 2` is `3.5`, use `idiv`); `Hash#to_h` ignores its block and returns the hash unchanged; `send(name, *args, **{})` passes the empty hash as an extra positional argument; a keyword argument's default cannot use an earlier keyword argument (`def m(a:, b: a)` calls a method `a`); `module_function` without arguments does nothing (use `extend self`)
 
 ## Maintaining this template
 

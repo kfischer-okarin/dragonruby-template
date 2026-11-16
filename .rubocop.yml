@@ -59,6 +59,10 @@ Style/GlobalVars:
 Style/MapToHash:
   Enabled: false
 
+# module_function without arguments does nothing in mruby
+Style/ModuleFunction:
+  EnforcedStyle: extend_self
+
 # Not implemented in mruby
 Style/RandomWithOffset:
   Enabled: false
