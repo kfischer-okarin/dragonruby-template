@@ -10,11 +10,20 @@ Engine behavior that matters once a game draws into render targets, blends in mo
   - the RGB is already multiplied by alpha;
   - alpha accumulates as `src + dst × (1 - src)`.
 
-  Drawing that target again with normal blending multiplies by alpha a second time, which darkens soft edges. Copy it with `blendmode_enum: 0`, or divide the RGB by alpha in a shader.
+  Drawing that target again with normal blending multiplies by alpha a second time, which darkens soft edges. Draw it with a premultiplied blend mode instead, which keeps its transparency (measured in 6.58 and 7.24: a 50% red shows correctly over black and white):
+
+  ```ruby
+  PREMULTIPLIED_BLENDMODE = Numeric.compose_blendmode(BLENDFACTOR_ONE, BLENDFACTOR_ONE_MINUS_SRC_ALPHA, BLENDOPERATION_ADD,
+                                                      BLENDFACTOR_ONE, BLENDFACTOR_ONE_MINUS_SRC_ALPHA, BLENDOPERATION_ADD)
+  { path: :target, blendmode: PREMULTIPLIED_BLENDMODE }
+  ```
+
+  Or copy it with `blendmode_enum: 0` (drops its transparency), or divide the RGB by alpha in a shader.
+- A blend mode from `Numeric.compose_blendmode` has to go in `blendmode:`. In `blendmode_enum:` it blends like normal alpha blending, without an error.
 - **Additive targets have zero alpha.** Additive blending (`blendmode_enum: 2`) adds color but leaves the target's alpha alone, so on a target cleared to transparent the alpha stays 0.
   - Drawing such a target into another one adds nothing, with any blend mode, because blending multiplies by that alpha. A glow or light layer composed this way silently disappears.
   - Workaround: read the target in a shader as a texture (shaders take its RGB as it is).
-  - Workaround: clear the target to opaque black (`[0, 0, 0, 255]`), so its alpha is 1 and black adds nothing. This follows from the same measurement but was not measured itself.
+  - Workaround: clear the target to opaque black (`[0, 0, 0, 255]`), so its alpha is 1 and black adds nothing. Measured in 6.58 and 7.24: additive red drawn into it and then drawn additively over gray `(64, 64, 64)` shows `(255, 64, 64)`.
 
 ## Shaders
 
