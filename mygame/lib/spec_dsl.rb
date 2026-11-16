@@ -97,8 +97,8 @@ module Spec
 
     def tested_method(method_name)
       define_helper :call_with do |*args, **kwargs|
-        # mruby cannot do proper args/kwargs forwarding so check manually
-        # Fix this after mruby 3.2
+        # mruby passes an empty **kwargs on as an extra positional {}, so only
+        # splat what was given (see the maintenance branch's probe-ruby-support)
         if args.size.positive? && kwargs.size.positive?
           subject.send(method_name, *args, **kwargs)
         elsif args.size.positive?
