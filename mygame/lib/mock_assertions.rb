@@ -1,3 +1,5 @@
+require 'lib/assertions'
+
 module GTK
   class Assert
     def was_called!(mock, method_name, message = nil)
