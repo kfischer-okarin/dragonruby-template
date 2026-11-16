@@ -1,7 +1,17 @@
+inherit_mode:
+  merge:
+    - Exclude
+
 AllCops:
   NewCops: enable
   # DragonRuby's mruby reports RUBY_VERSION 3.0 (mruby 3.0.0)
   TargetRubyVersion: 3.0
+  # Ruby files of the engine copied into the repository
+  Exclude:
+    - builds/**/*
+    - docs/**/*
+    - mygame-template/**/*
+    - samples/**/*
 
 # --- Personal preferences ---
 Layout/LineLength:
