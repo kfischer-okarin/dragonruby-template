@@ -169,7 +169,7 @@ state() {
   eval_ruby "$(cat <<'RUBY'
 result = { tick: Kernel.tick_count }
 game_cli = Object.const_defined?(:GameCli) ? Object.const_get(:GameCli) : nil
-result.merge!(game_cli.state) if game_cli&.respond_to?(:state)
+result.merge!(game_cli.state) if game_cli&.singleton_methods(false)&.include?(:state)
 result
 RUBY
 )"
@@ -210,7 +210,7 @@ reset() {
   outcome="$(eval_ruby "$(cat <<RUBY
 begin
   game_cli = Object.const_defined?(:GameCli) ? Object.const_get(:GameCli) : nil
-  if game_cli&.respond_to?(:setup)
+  if game_cli&.singleton_methods(false)&.include?(:setup)
     game_cli.setup(:$1)
     :ran
   else
