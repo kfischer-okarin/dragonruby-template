@@ -62,6 +62,10 @@ DragonRuby runs mruby with `RUBY_VERSION` 3.0, and `.rubocop.yml` targets that. 
 
 The top-level constants `Mat2`-`Mat4`, `Vec2`-`Vec4`, `Matrix`, `Geometry`, `Easing`, `Layout` and `Grid` belong to the engine (reopening `Mat3` as a module fails with "Mat3 is not a module"), and render targets cannot be named `:pixel` or `:solid`.
 
+## Render targets, blending and shaders
+
+Read `guides/dragonruby-rendering.md` before drawing into render targets, combining blend modes, writing shaders, or drawing thousands of sprites per frame.
+
 ## Maintaining this template
 
 This section only applies to the template repository itself, `kfischer-okarin/dragonruby-template`, checked out in a folder named `dragonruby-template`. Games created from the template start with a copy of this file: if you are in any other repository or folder, you are in a game, so delete this section.
