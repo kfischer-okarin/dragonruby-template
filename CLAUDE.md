@@ -64,7 +64,7 @@ The top-level constants `Mat2`-`Mat4`, `Vec2`-`Vec4`, `Matrix`, `Geometry`, `Eas
 
 ## Maintaining this template
 
-Delete this section in games created from this template; it only applies to the `dragonruby-template` repository itself.
+This section only applies to the template repository itself, `kfischer-okarin/dragonruby-template`, checked out in a folder named `dragonruby-template`. Games created from the template start with a copy of this file, so in any other repository or folder you are in a game: ignore this section, and delete it when setting the game up.
 
 Tools for maintaining the template live on the orphan `maintenance` branch, so they do not come along into new games. After a DragonRuby update, run the Ruby support probe against the new release without checking the branch out:
 
