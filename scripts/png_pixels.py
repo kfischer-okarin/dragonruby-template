@@ -19,11 +19,19 @@ def decode_png(path):
     with open(path, "rb") as file:
         chunks = read_chunks(file.read()[8:])
     width, height, depth, color_type = struct.unpack(">IIBB", chunks["IHDR"][:10])
-    if depth != 8 or color_type not in (2, 6):
-        sys.exit(f"Expected an 8-bit RGB or RGBA PNG, got depth {depth} color type {color_type}")
-    bytes_per_pixel = 4 if color_type == 6 else 3
+    bytes_per_pixel = {2: 3, 3: 1, 6: 4}.get(color_type)
+    if depth != 8 or bytes_per_pixel is None:
+        sys.exit(f"Expected an 8-bit RGB, RGBA or palette PNG, got depth {depth} color type {color_type}")
     rows = unfilter(zlib.decompress(chunks["IDAT"]), width, height, bytes_per_pixel)
+    # DragonRuby saves screenshots with at most 256 colors as palette PNGs
+    if color_type == 3:
+        rows = [expand_palette(row, chunks["PLTE"]) for row in rows]
+        bytes_per_pixel = 3
     return height, bytes_per_pixel, rows
+
+
+def expand_palette(row, palette):
+    return bytearray(b"".join(palette[index * 3:index * 3 + 3] for index in row))
 
 
 def read_chunks(data):
