@@ -38,6 +38,10 @@ Engine behavior that matters once a game draws into render targets, blends in mo
 - Compile errors land in `mygame/errors/last.txt`. Saving the same shader twice within one second can leave the failed compile active: save or `touch` it again.
 - On every boot the engine writes compiled `.dxil`, `.msl` and `.spv` files next to each shader (ignored by git).
 
+## Sprites
+
+- `r`, `g`, `b` and `a` are truncated to whole numbers and clamped to 0..255: `r: 100.9` draws as 100, `a: 0.75` as 0 (measured in 7.24 with `path: :pixel` sprites in a render target).
+
 ## Drawing thousands of sprites per frame
 
 - Building a Hash with a dozen keys for every sprite every frame costs about 3 µs per sprite in mruby. Measured with 1,500 moving sprites: 7.4 ms of Ruby with Hashes, 2.5 ms with the alternative below.
