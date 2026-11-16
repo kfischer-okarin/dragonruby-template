@@ -21,6 +21,10 @@ VERSION.txt
 
 mygame/app/repl.rb
 mygame/errors
+# Compiled from the .hlsl sources whenever the game boots
+mygame/shaders/*.dxil
+mygame/shaders/*.msl
+mygame/shaders/*.spv
 
 # Others
 .dragonruby-files
