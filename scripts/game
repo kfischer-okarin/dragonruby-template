@@ -44,7 +44,7 @@ Usage: scripts/game <command>
   reset [setup]               Restart the game from tick 0, then run GameCli.setup(:setup)
   screenshot <name>           Save mygame/tmp/game/screenshots/<name>.png and print its path
   pixel <name> <x,y>...       Print the RGB of screenshot pixels, in game coordinates (origin bottom left)
-  eval <ruby>              Evaluate Ruby in the instance and print the inspected result
+  eval <ruby>                 Evaluate Ruby in the instance and print the inspected result
   stop                        Stop the instance this script started
 USAGE
   exit 2
