@@ -1,0 +1,126 @@
+#!/bin/bash
+# Checks which Ruby syntax and core methods a DragonRuby release supports.
+#
+# Usage: probe-ruby-support <dragonruby-dir>
+#
+# Builds a throwaway game next to a copy of the engine, evaluates every probe
+# below when the game starts, and prints one line per probe. A probe passes
+# when it runs without error and returns the expected value, so methods that
+# exist but behave differently (Hash#to_h ignoring its block) fail too.
+
+set -euo pipefail
+
+main() {
+  [ $# -eq 1 ] || usage
+  local dragonruby_dir
+  dragonruby_dir="$(cd "$1" && pwd)"
+  [ -x "$dragonruby_dir/dragonruby" ] || {
+    echo "No dragonruby executable in $dragonruby_dir" >&2
+    exit 1
+  }
+
+  WORK_DIR="$(mktemp -d)"
+  trap 'rm -rf "$WORK_DIR"' EXIT
+
+  copy_engine "$dragonruby_dir" "$WORK_DIR"
+  write_probe_game "$WORK_DIR/mygame"
+  run_probe_game "$WORK_DIR"
+  print_results "$dragonruby_dir" "$WORK_DIR/mygame/probe-results.txt"
+}
+
+usage() {
+  echo "Usage: probe-ruby-support <dragonruby-dir>" >&2
+  exit 2
+}
+
+copy_engine() {
+  local source_dir="$1"
+  local target_dir="$2"
+  rsync -a \
+    --exclude 'docs' --exclude 'samples' --exclude '*.app' \
+    --exclude 'mygame' --exclude 'mygame-template' --exclude 'builds' \
+    "$source_dir/" "$target_dir/"
+}
+
+write_probe_game() {
+  local game_dir="$1"
+  mkdir -p "$game_dir/app" "$game_dir/metadata"
+  cat >"$game_dir/app/main.rb" <<'RUBY'
+PROBES = [
+  # Syntax
+  ['endless def', 'Class.new { def m(x) = x * 2 }.new.m(3)', 6],
+  ['endless def with yield', 'Class.new { def m = yield }.new.m { 1 }', 1],
+  ['... forwarding', 'Class.new { def t(*a, **k) = [a, k]; def m(...) = t(...) }.new.m(1, z: 2)', [[1], { z: 2 }]],
+  ['... forwarding with leading arg', 'Class.new { def t(*a) = a; def m(x, ...) = t(x, ...) }.new.m(1, 2)', [1, 2]],
+  ['anonymous block forwarding (&)', 'Class.new { def t; yield; end; def m(&); t(&); end }.new.m { 42 }', 42],
+  ['anonymous rest forwarding (*)', 'Class.new { def t(*a) = a; def m(*) = t(*) }.new.m(1, 2)', [1, 2]],
+  ['anonymous kwrest forwarding (**)', 'Class.new { def t(**k) = k; def m(**) = t(**) }.new.m(a: 1)', { a: 1 }],
+  ['hash shorthand {x:}', 'x = 1; { x: }', { x: 1 }],
+  ['numbered block params (_1)', '[1, 2].map { _1 * 2 }', [2, 4]],
+  ['it block param', '[1, 2].map { it * 2 }', [2, 4]],
+  ['pattern matching case/in', 'case [1, 2] in [a, b] then a + b end', 3],
+  ['rightward pattern =>', '{ a: 1 } => { a: }; a', 1],
+  ['one-line pattern in', '1 in Integer', true],
+  ['beginless range', '(..3).include?(2)', true],
+  # Core methods
+  ['Hash#except', '{ a: 1, b: 2 }.except(:a)', { b: 2 }],
+  ['Hash#slice', '{ a: 1, b: 2 }.slice(:a)', { a: 1 }],
+  ['Hash#sum with block', '{ a: 1 }.sum { |_k, v| v }', 1],
+  ['Hash#to_h with block', '{ a: 1 }.to_h { |k, v| [v, k] }', { 1 => :a }],
+  ['Array#to_h with block', '[[1, 2]].to_h { |a, b| [b, a] }', { 2 => 1 }],
+  ['Array#filter_map', '[1, nil, 2].filter_map { |x| x && x * 2 }', [2, 4]],
+  ['Array#intersect?', '[1, 2].intersect?([2])', true],
+  ['Enumerable#tally', '%w[a a b].tally', { 'a' => 2, 'b' => 1 }],
+  ['Comparable#clamp(min, max)', '5.clamp(1, 3)', 3],
+  ['Comparable#clamp(range)', '5.clamp(1..3)', 3],
+  ['String#delete_prefix', "'abc'.delete_prefix('a')", 'bc'],
+  ['Integer#digits', '123.digits', [3, 2, 1]],
+  ['Kernel#rand(range)', 'rand(1..1)', 1],
+  ['Data.define', 'Data.define(:x).new(x: 1).x', 1],
+  ['Struct keyword_init:', 'Struct.new(:x, keyword_init: true).new(x: 1).x', 1],
+  # Forwarding a splatted empty keyword hash through send
+  ['send(*args, **{}) to positional method', 'Class.new { def m(a) = a }.new.send(:m, *[1], **{})', 1],
+  ['send(*args, **{}) to optional hash param', 'Class.new { def m(a, h = :none) = h }.new.send(:m, *[1], **{})', :none],
+  ['send(*[], **{}) to method without params', 'Class.new { def m = :ok }.new.send(:m, *[], **{})', :ok],
+  ['send(*[], **kwargs) to keyword method', 'Class.new { def m(k:) = k }.new.send(:m, *[], **{ k: 1 })', 1],
+  ['send(*args, **kwargs) to mixed method', 'Class.new { def m(a, k:) = [a, k] }.new.send(:m, *[1], **{ k: 2 })', [1, 2]]
+].freeze
+
+def tick(args)
+  results = PROBES.map { |label, code, expected| "#{label}\t#{probe(code, expected)}" }
+  $gtk.write_file('probe-results.txt', "#{results.join("\n")}\n")
+  $gtk.request_quit
+end
+
+def probe(code, expected)
+  actual = eval(code)
+  actual == expected ? 'ok' : "FAIL returned #{actual.inspect}, expected #{expected.inspect}"
+rescue Exception => e # rubocop:disable Lint/RescueException
+  "FAIL #{e.class}: #{e.message.lines.first.to_s.strip}"
+end
+RUBY
+}
+
+run_probe_game() {
+  local work_dir="$1"
+  (
+    cd "$work_dir"
+    SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy ./dragonruby mygame >"$work_dir/probe.log" 2>&1
+  )
+}
+
+print_results() {
+  local dragonruby_dir="$1"
+  local results_file="$2"
+  if [ ! -f "$results_file" ]; then
+    echo "The probe game wrote no results. Log:" >&2
+    tail -30 "$(dirname "$results_file")/../probe.log" >&2
+    exit 1
+  fi
+  local mruby_version
+  mruby_version="$(sed -n 's/^#define MRUBY_RUBY_VERSION "\(.*\)"/\1/p' "$dragonruby_dir/include/mruby/version.h" 2>/dev/null)"
+  echo "$(basename "$dragonruby_dir") (mruby RUBY_VERSION ${mruby_version:-unknown})"
+  awk -F '\t' '{ printf "  %-44s %s\n", $1, $2 }' "$results_file"
+}
+
+main "$@"
