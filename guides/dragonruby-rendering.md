@@ -30,7 +30,9 @@ Engine behavior that matters once a game draws into render targets, blends in mo
 - They need `shaders=true` in `mygame/metadata/game_metadata.txt` and the Pro license, and they cannot run headless (see CLAUDE.md). The publisher warns that `scale_quality=3` (pixel art) does not work with shaders.
 - The API is `outputs[:target].shader = { path:, textures:, uniforms: }`, or `outputs.shader` for the screen. The engine's `samples/14_shaders` shows it; `docs/api/outputs.md` still describes an older GLSL API that no longer applies.
 - Every `.hlsl` file has to be required, like a Ruby file, before it is used.
-- A shader on a render target runs once over the whole target after its primitives are drawn, with the result as `t0`. It does not run per primitive.
+- A shader on a render target does not change the target. It is the fragment shader of every sprite that draws the target, so it runs for every pixel that sprite covers, wherever the target is drawn, and not per primitive drawn into the target.
+  - `t0` is the target, `TEXCOORD0` the sprite's texture coordinate (with 0, 0 at the target's top left) and `COLOR0` the sprite's color; the sprite's `scale_quality_enum` and `blendmode_enum` apply.
+  - Measured in 7.24 with a shader on a 160×90 target that reads a 320×180 target through `textures:` and ignores `COLOR0`: drawn at 1280×720, it showed the 320×180 target's full detail inside the 160×90 target's pixels, and a sprite with `r: 0` did not tint it.
 - `textures:` maps in order to `t1`, `t2`, ... Each texture needs a sampler with the same number, and every texture and sampler is declared with `space2`.
 - `uniforms:` is a list of `{ type: :float, value: }` (or `:int`) that fills the `cbuffer` at `register(b0, space3)` in order. HLSL aligns `float4` fields to 16 bytes, so keep floats in groups of four that match the `float4` fields.
 - Compile errors land in `mygame/errors/last.txt`. Saving the same shader twice within one second can leave the failed compile active: save or `touch` it again.
