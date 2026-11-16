@@ -56,7 +56,9 @@ module Spec
 
     alias xcontext xdescribe
 
-    def it(name, focus: @focus, &block)
+    # Not called `it`: DragonRuby parses `it 'name' do` as the implicit block
+    # parameter and fails with a syntax error
+    def test(name, focus: @focus, &block)
       test_prefix = focus ? 'focus_test' : 'test'
       before_each_blocks = @before_each_blocks
       helpers = @helpers
@@ -72,20 +74,17 @@ module Spec
       end
     end
 
-    alias test it
-    alias they it
+    alias they test
 
-    def fit(name, &block)
-      it(name, focus: true, &block)
+    def ftest(name, &block)
+      test(name, focus: true, &block)
     end
 
-    alias ftest fit
-    alias fthey fit
+    alias fthey ftest
 
-    def xit(_name, &block); end
+    def xtest(_name, &block); end
 
-    alias xtest xit
-    alias xthey xit
+    alias xthey xtest
 
     def before_each(&block)
       @before_each_blocks << block
